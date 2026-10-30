@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "rnasyncstorage_autolinked_build",
+		"source" : "/Users/jimmy/Downloads/projects/personal/Standup-Companion/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni"
+	}
+}

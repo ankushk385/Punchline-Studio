@@ -1,0 +1,84 @@
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import React, { useMemo, useState } from 'react';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CrowdType, useData } from '@/context/DataContext';
+import { confirmAction, notify } from '@/lib/dialog';
+import { useAppTheme } from '@/theme/ThemeProvider';
+import { AppColors, radius, spacing, ThemeMode, type } from '@/theme/tokens';
+
+function SettingCard({ title, icon, children }: { title: string; icon: keyof typeof Ionicons.glyphMap; children: React.ReactNode }) {
+  const { colors } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
+  return <View style={styles.card}><View style={styles.cardTitleRow}><Ionicons name={icon} size={19} color={colors.amber} /><Text style={styles.cardTitle}>{title}</Text></View>{children}</View>;
+}
+function Row({ icon, label, value, onPress, danger, last }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; onPress?: () => void; danger?: boolean; last?: boolean }) {
+  const { colors } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
+  return <Pressable disabled={!onPress} onPress={onPress} testID={onPress ? `settings-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : undefined} style={[styles.row, last && { borderBottomWidth: 0 }]}><Ionicons name={icon} size={19} color={danger ? colors.red : colors.muted} /><Text style={[styles.rowLabel, danger && { color: colors.red }]}>{label}</Text>{value && <Text style={styles.rowValue}>{value}</Text>}{onPress && <Ionicons name="chevron-forward" size={17} color={colors.muted} />}</Pressable>;
+}
+
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets(); const { colors, mode, setMode, hapticsEnabled, setHapticsEnabled, soundsEnabled, setSoundsEnabled } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { profile, updateProfile, goals, updateGoals, ideas, jokes, setlists, ratings, recordings, gigs, progress, resetAllData, logout, isAuthenticated, syncState, syncNow, retrySync, deleteCloudAccountData } = useData();
+  const [name, setName] = useState(profile.displayName); const [editingDuration, setEditingDuration] = useState(false); const [durationText, setDurationText] = useState(String(goals.dailyPracticeMinutes)); const [editingWrite, setEditingWrite] = useState(false); const [writeText, setWriteText] = useState(String(goals.dailyWriteTarget));
+  const storageKb = Math.max(1, Math.round(JSON.stringify({ ideas, jokes, setlists, ratings, recordings, gigs, progress }).length / 1024));
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const syncBusy = syncState.phase === 'syncing';
+  const syncStatus = !isAuthenticated
+    ? 'Sign in to back up'
+    : syncState.phase === 'unavailable'
+      ? 'Cloud sync unavailable'
+      : syncState.phase === 'syncing'
+        ? 'Syncing changes…'
+        : syncState.phase === 'error'
+          ? 'Needs attention'
+          : syncState.pendingCount > 0
+            ? `${syncState.pendingCount} change${syncState.pendingCount === 1 ? '' : 's'} waiting`
+            : syncState.initialMigrationComplete
+              ? 'Everything is up to date'
+              : 'First backup pending';
+  const syncTone = !isAuthenticated || syncState.phase === 'unavailable'
+    ? colors.muted
+    : syncState.phase === 'error'
+      ? colors.red
+      : syncState.phase === 'syncing'
+        ? colors.lavender
+        : syncState.pendingCount > 0
+          ? colors.warning
+          : colors.mint;
+  const lastSyncedLabel = syncState.lastSyncedAt
+    ? new Date(syncState.lastSyncedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : null;
+  async function exportData() { const payload = JSON.stringify({ exportedAt: new Date().toISOString(), profile, goals, ideas, jokes, setlists, ratings, recordings, gigs, progress }, null, 2); try { if (Platform.OS === 'web') { const blob = new Blob([payload], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `comedy-os-backup-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url); } else await Share.share({ title: 'Comedy OS data export', message: payload }); } catch { notify('Export failed', 'Your data could not be exported.'); } }
+  async function runManualSync() { try { await syncNow(); } catch { notify('Sync failed', 'Your work is still saved on this device. Try again when you have a connection.'); } }
+  async function retryPending() { try { await retrySync(); } catch { notify('Sync failed', 'Your work is still saved on this device. Try again when you have a connection.'); } }
+  async function clearLocalData() { const confirmed = await confirmAction({ title: 'Clear local cache?', message: 'This removes the cached copy of your work from this device. Your cloud backup is not deleted, and a future sync can restore it.', confirmLabel: 'Clear local cache', destructive: true }); if (!confirmed) return; await resetAllData(); if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); }
+  async function deleteCloudData() { if (!isAuthenticated) return notify('Sign in first', 'Sign in before deleting a cloud backup.'); const confirmed = await confirmAction({ title: 'Delete cloud backup?', message: 'This permanently deletes ideas, jokes, setlists, gigs, ratings, progress, settings, and recordings from your cloud account. This cannot be undone.', confirmLabel: 'Delete cloud backup', destructive: true }); if (!confirmed) return; try { await deleteCloudAccountData(); if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); notify('Cloud backup deleted', 'This device was cleared too. You can start fresh.'); } catch { notify('Could not delete cloud backup', 'Your cloud data was not fully deleted. Check your connection and try again.'); } }
+  function saveDuration() { const value = Math.max(1, Math.min(180, Number(durationText) || goals.dailyPracticeMinutes)); void updateGoals({ dailyPracticeMinutes: value }); setDurationText(String(value)); setEditingDuration(false); }
+  function saveWrite() { const value = Math.max(1, Math.min(25, Number(writeText) || goals.dailyWriteTarget)); void updateGoals({ dailyWriteTarget: value }); setWriteText(String(value)); setEditingWrite(false); }
+  const themeOptions: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [{ value: 'light', label: 'Light', icon: 'sunny-outline' }, { value: 'dark', label: 'Dark', icon: 'moon-outline' }, { value: 'system', label: 'System', icon: 'phone-portrait-outline' }];
+  const crowdOptions: { value: CrowdType; label: string }[] = [{ value: 'any', label: 'Any' }, { value: 'club', label: 'Club' }, { value: 'college', label: 'College' }, { value: 'corporate', label: 'Corporate' }];
+  return <View style={[styles.screen, { paddingTop: Platform.OS === 'web' ? 62 : insets.top }]}><View style={styles.header}><Pressable accessibilityLabel="Close settings" onPress={() => router.back()} style={styles.close}><Ionicons name="chevron-back" size={23} color={colors.text} /></Pressable><View><Text style={styles.title}>Settings</Text><Text style={styles.subtitle}>Make Comedy OS work your way.</Text></View></View><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]}>
+    <SettingCard title="Appearance" icon="color-palette-outline"><View style={styles.segment}>{themeOptions.map(item => <Pressable key={item.value} onPress={() => void setMode(item.value)} style={[styles.segmentItem, mode === item.value && styles.segmentActive]}><Ionicons name={item.icon} size={18} color={mode === item.value ? (item.value === 'light' ? colors.onAccent : colors.white) : colors.muted} /><Text style={[styles.segmentText, mode === item.value && { color: item.value === 'light' ? colors.onAccent : colors.white }]}>{item.label}</Text></Pressable>)}</View></SettingCard>
+    <SettingCard title="Practice" icon="timer-outline"><View style={styles.row}><Ionicons name="time-outline" size={19} color={colors.muted} /><Text style={styles.rowLabel}>Default practice duration</Text>{editingDuration ? <TextInput autoFocus value={durationText} onChangeText={setDurationText} onBlur={saveDuration} onSubmitEditing={saveDuration} keyboardType="number-pad" style={styles.numberInput} /> : <Pressable onPress={() => setEditingDuration(true)}><Text style={styles.rowValue}>{goals.dailyPracticeMinutes} minutes</Text></Pressable>}</View><View style={[styles.row, { borderBottomWidth: 0 }]}><Ionicons name="pencil-outline" size={19} color={colors.muted} /><Text style={styles.rowLabel}>Daily writing goal</Text>{editingWrite ? <TextInput autoFocus value={writeText} onChangeText={setWriteText} onBlur={saveWrite} onSubmitEditing={saveWrite} keyboardType="number-pad" style={styles.numberInput} /> : <Pressable onPress={() => setEditingWrite(true)}><Text style={styles.rowValue}>{goals.dailyWriteTarget} jokes</Text></Pressable>}</View></SettingCard>
+    <SettingCard title="Haptics & Audio" icon="volume-high-outline"><View style={styles.row}><Ionicons name="phone-portrait-outline" size={19} color={colors.muted} /><Text style={styles.rowLabel}>Haptic feedback</Text><Switch value={hapticsEnabled} onValueChange={value => void setHapticsEnabled(value)} trackColor={{ false: colors.surface, true: colors.amber }} thumbColor={colors.white} /></View><View style={[styles.row, { borderBottomWidth: 0 }]}><Ionicons name="volume-medium-outline" size={19} color={colors.muted} /><Text style={styles.rowLabel}>Interface sounds</Text><Switch value={soundsEnabled} onValueChange={value => void setSoundsEnabled(value)} trackColor={{ false: colors.surface, true: colors.amber }} thumbColor={colors.white} /></View></SettingCard>
+    <SettingCard title="Comedy defaults" icon="person-outline"><TextInput value={name} onChangeText={setName} onBlur={() => void updateProfile({ displayName: name.trim() || 'Comedian' })} placeholder="Display name" placeholderTextColor={colors.subtle} style={styles.nameInput} /><Text style={styles.miniLabel}>Default crowd</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 7 }}>{crowdOptions.map(item => <Pressable key={item.value} onPress={() => void updateProfile({ crowdType: item.value })} style={[styles.chip, profile.crowdType === item.value && styles.chipActive]}><Text style={[styles.chipText, profile.crowdType === item.value && { color: colors.lavender }]}>{item.label}</Text></Pressable>)}</ScrollView></SettingCard>
+    <SettingCard title="Cloud sync" icon="cloud-outline"><View style={styles.syncStatusRow}><View style={[styles.syncDot, { backgroundColor: syncTone }]} /><View style={{ flex: 1 }}><Text style={styles.syncStatus}>{syncStatus}</Text><Text style={styles.syncDetail}>{lastSyncedLabel ? `Last synced ${lastSyncedLabel}` : 'Changes save on this device immediately.'}</Text></View>{syncBusy && <Text style={styles.syncBusy}>Working…</Text>}</View>{syncState.message ? <Text style={styles.syncMessage}>{syncState.message}</Text> : null}<Row icon="sync-outline" label={syncBusy ? 'Syncing…' : 'Sync now'} value={syncState.pendingCount > 0 ? `${syncState.pendingCount} pending` : undefined} onPress={syncBusy ? undefined : () => void runManualSync()} /><Row icon="refresh-outline" label="Retry pending changes" onPress={syncBusy ? undefined : () => void retryPending()} last /></SettingCard>
+    <SettingCard title="Data & Backup" icon="server-outline"><Row icon="folder-outline" label="Local data size" value={`~${storageKb} KB`} /><Row icon="download-outline" label="Export all data (JSON)" onPress={() => void exportData()} /><Row icon="trash-outline" label="Clear local cache" value="Cloud kept" onPress={clearLocalData} danger /><Row icon="cloud-offline-outline" label="Delete cloud backup" value="Permanent" onPress={deleteCloudData} danger last /></SettingCard>
+    <SettingCard title="Calendar" icon="calendar-outline"><Row icon="calendar-outline" label="Manage gig calendar sync" value="Per gig" onPress={() => { router.back(); setTimeout(() => router.push('/(tabs)/gigs'), 0); }} last /></SettingCard>
+    <SettingCard title="About" icon="information-circle-outline"><Row icon="phone-portrait-outline" label="App version" value={version} last /></SettingCard>
+    <Pressable onPress={() => void logout()} testID="settings-sign-out" style={styles.logout}><Ionicons name="log-out-outline" size={19} color={colors.red} /><Text style={styles.logoutText}>Sign out</Text></Pressable>
+  </ScrollView></View>;
+}
+
+function makeStyles(colors: AppColors) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background }, header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, gap: 6 }, close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, title: { fontFamily: type.bold, fontSize: 28, color: colors.text, letterSpacing: -0.6 }, subtitle: { fontFamily: type.regular, fontSize: 12.5, color: colors.muted, marginTop: 1 }, content: { paddingHorizontal: spacing.lg, gap: 11 },
+  card: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 14, paddingTop: 13, overflow: 'hidden' }, cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 }, cardTitle: { fontFamily: type.bold, fontSize: 15, color: colors.text },
+  segment: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.md, padding: 3, marginBottom: 14 }, segmentItem: { flex: 1, minHeight: 46, borderRadius: 11, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 }, segmentActive: { backgroundColor: colors.lavender }, segmentText: { fontFamily: type.medium, fontSize: 12, color: colors.muted },
+  row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, rowLabel: { flex: 1, fontFamily: type.regular, fontSize: 13.5, color: colors.text }, rowValue: { fontFamily: type.regular, fontSize: 12.5, color: colors.muted }, numberInput: { width: 62, minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 8, textAlign: 'center', fontFamily: type.medium, color: colors.text },
+  syncStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }, syncDot: { width: 9, height: 9, borderRadius: 5 }, syncStatus: { fontFamily: type.semibold, fontSize: 13.5, color: colors.text }, syncDetail: { fontFamily: type.regular, fontSize: 11.5, color: colors.muted, marginTop: 2 }, syncBusy: { fontFamily: type.medium, fontSize: 11, color: colors.lavender }, syncMessage: { fontFamily: type.regular, fontSize: 11.5, lineHeight: 17, color: colors.muted, marginTop: 9, padding: 10, borderRadius: radius.md, backgroundColor: colors.surface },
+  nameInput: { minHeight: 46, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 12, fontFamily: type.regular, fontSize: 14, color: colors.text }, miniLabel: { fontFamily: type.semibold, fontSize: 12, color: colors.muted, marginTop: 12, marginBottom: 7 }, chip: { minHeight: 36, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: 'center', marginBottom: 14 }, chipActive: { borderColor: colors.lavender, backgroundColor: colors.lavenderSoft }, chipText: { fontFamily: type.medium, fontSize: 11.5, color: colors.muted },
+  logout: { minHeight: 50, borderRadius: radius.md, borderWidth: 1, borderColor: `${colors.red}55`, backgroundColor: colors.redSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }, logoutText: { fontFamily: type.semibold, fontSize: 14, color: colors.red },
+}); }

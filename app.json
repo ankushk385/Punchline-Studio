@@ -1,0 +1,84 @@
+{
+  "expo": {
+    "name": "StandUp Companion",
+    "slug": "standup-companion",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "standupcompanion",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1C1C28"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.standupcompanion",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "StandUp Companion uses your microphone for voice notes, joke takes, performances, and teleprompter voice follow.",
+        "NSPhotoLibraryUsageDescription": "StandUp Companion needs access to your photo library to save recordings."
+      }
+    },
+    "android": {
+      "package": "com.standupcompanion",
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1C1C28",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-sqlite",
+      "expo-web-browser",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "StandUp Companion uses your calendar to add and update your gigs.",
+          "remindersPermission": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "StandUp Companion uses your microphone for voice notes, joke takes, performances, and teleprompter voice follow.",
+          "enableBackgroundPlayback": true,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://replit.com/"
+      },
+      "eas": {
+        "projectId": "bbc056fa-46b1-448a-a0de-4bd2ba528e40"
+      }
+    }
+  }
+}
