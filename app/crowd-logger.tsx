@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import {
-  View, Text, StyleSheet, Pressable, ScrollView, Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '@/constants/colors';
 import { useData, CrowdType } from '@/context/DataContext';
 import { getLocalDateString } from '@/lib/date';
+import { useAppTheme } from '@/theme/ThemeProvider';
+import { AppColors, spacing, type } from '@/theme/tokens';
+import { AppScreen } from '@/components/ui/Playbill';
 
 const CROWD_TYPES: { value: CrowdType; label: string; emoji: string }[] = [
   { value: 'corporate', label: 'Corporate', emoji: '💼' },
@@ -20,11 +20,11 @@ const CROWD_TYPES: { value: CrowdType; label: string; emoji: string }[] = [
 ];
 
 const REACTION_OPTS = [
-  { label: 'Killed', value: 10, icon: '💀', color: Colors.statusStage },
-  { label: 'Big laugh', value: 9, icon: '🤣', color: Colors.statusStage },
-  { label: 'Good', value: 7, icon: '😄', color: Colors.primaryGold },
-  { label: 'Polite', value: 5, icon: '😐', color: Colors.statusDev },
-  { label: 'Silence', value: 2, icon: '😬', color: Colors.statusRaw },
+  { label: 'Killed', value: 10, icon: '💀' },
+  { label: 'Big laugh', value: 9, icon: '🤣' },
+  { label: 'Good', value: 7, icon: '😄' },
+  { label: 'Polite', value: 5, icon: '😐' },
+  { label: 'Silence', value: 2, icon: '😬' },
 ];
 
 interface ShowEntry {
@@ -37,6 +37,8 @@ interface ShowEntry {
 export default function CrowdLoggerScreen() {
   const insets = useSafeAreaInsets();
   const { jokes, setlists, addRatings } = useData();
+  const { colors } = useAppTheme();
+  const styles = makeStyles(colors);
   const [step, setStep] = useState<'crowd' | 'jokes' | 'done'>('crowd');
   const [crowdType, setCrowdType] = useState<CrowdType>('any');
   const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(null);
@@ -46,10 +48,8 @@ export default function CrowdLoggerScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const activeSetlistJokes = selectedSetlistId
-    ? setlists.find(s => s.id === selectedSetlistId)?.jokes
-        .map(sj => jokes.find(j => j.id === sj.jokeId))
-        .filter(Boolean) as typeof jokes
-    : jokes.filter(j => j.jokeState === 'stage-ready' || j.jokeState === 'in-set');
+    ? (setlists.find(s => s.id === selectedSetlistId)?.jokes.map(sj => jokes.find(j => j.id === sj.jokeId)).filter(Boolean) as typeof jokes)
+    : jokes.filter(j => j.jokeState === 'stage-ready' || (j as any).jokeState === 'in-set');
 
   function startLogging() {
     const queue = activeSetlistJokes.slice(0, 20);
@@ -62,12 +62,7 @@ export default function CrowdLoggerScreen() {
     const joke = jokeQueue[currentJokeIdx];
     if (!joke) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setEntries(prev => [...prev, {
-      jokeId: joke.id,
-      jokeTitle: joke.title || joke.setup?.slice(0, 30) || 'Untitled',
-      reaction,
-      reactionLabel,
-    }]);
+    setEntries(prev => [...prev, { jokeId: joke.id, jokeTitle: joke.title || joke.setup?.slice(0, 30) || 'Untitled', reaction, reactionLabel }]);
     if (currentJokeIdx + 1 >= jokeQueue.length) {
       setStep('done');
     } else {
@@ -86,15 +81,7 @@ export default function CrowdLoggerScreen() {
     setIsSaving(true);
     const today = getLocalDateString();
     try {
-      await addRatings(entries.map(entry => ({
-        jokeId: entry.jokeId,
-        performanceDate: today,
-        rating: entry.reaction,
-        laughScore: entry.reaction,
-        notes: '',
-        crowdType,
-        kept: entry.reaction >= 5,
-      })));
+      await addRatings(entries.map(entry => ({ jokeId: entry.jokeId, performanceDate: today, rating: entry.reaction, laughScore: entry.reaction, notes: '', crowdType, kept: entry.reaction >= 5 })));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (error) {
@@ -106,242 +93,162 @@ export default function CrowdLoggerScreen() {
   }
 
   const currentJoke = jokeQueue[currentJokeIdx];
-  const pct = jokeQueue.length > 0 ? (currentJokeIdx / jokeQueue.length) : 0;
 
   if (step === 'done') {
     return (
-      <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : insets.top }]}>
+      <AppScreen>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Close summary" onPress={() => router.back()} hitSlop={10}>
-            <Ionicons name="close" size={24} color={Colors.textGray} />
+          <Pressable accessibilityLabel="Close summary" onPress={() => router.back()} hitSlop={10} style={styles.iconBtn}>
+            <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Show Summary</Text>
-          <View style={{ width: 24 }} />
+          <View style={{ width: 44 }} />
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}>
           <Animated.View entering={ZoomIn.duration(400)} style={styles.summaryHero}>
-            <Text style={styles.summaryEmoji}>
-              {entries.filter(e => e.reaction >= 8).length > entries.length / 2 ? '🎉' : '📊'}
-            </Text>
+            <Text style={styles.summaryEmoji}>{entries.filter(e => e.reaction >= 8).length > entries.length / 2 ? '🎉' : '📊'}</Text>
             <Text style={styles.summaryTitle}>Set Complete!</Text>
             <Text style={styles.summarySub}>{entries.length} jokes logged</Text>
           </Animated.View>
-
           {entries.map((e, i) => (
-            <Animated.View key={e.jokeId} entering={FadeInDown.delay(i * 60).duration(300)} style={styles.summaryCard}>
+            <Animated.View key={e.jokeId + i} entering={FadeInDown.delay(i * 60).duration(300)} style={styles.summaryCard}>
               <Text style={styles.summaryJokeTitle} numberOfLines={1}>{e.jokeTitle}</Text>
               <View style={styles.summaryReaction}>
-                <Text style={styles.summaryEmojiBig}>
-                  {REACTION_OPTS.find(r => r.value === e.reaction)?.icon || '😐'}
-                </Text>
-                <Text style={[styles.summaryLabel, {
-                  color: REACTION_OPTS.find(r => r.value === e.reaction)?.color || Colors.textGray,
-                }]}>{e.reactionLabel}</Text>
+                <Text style={styles.summaryEmojiBig}>{REACTION_OPTS.find(r => r.value === e.reaction)?.icon || '😐'}</Text>
+                <Text style={styles.summaryLabel}>{e.reactionLabel}</Text>
               </View>
             </Animated.View>
           ))}
         </ScrollView>
         <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }]}>
-          <Pressable style={styles.discardBtn} onPress={() => router.back()}>
-            <Text style={styles.discardText}>Discard</Text>
-          </Pressable>
-          <Pressable style={styles.saveAllBtn} onPress={saveAll} disabled={isSaving}>
-            <Ionicons name="checkmark-circle" size={18} color={Colors.oledBlack} />
-            <Text style={styles.saveAllText}>{isSaving ? 'Saving...' : 'Save All Ratings'}</Text>
-          </Pressable>
+          <Pressable style={styles.discardBtn} onPress={() => router.back()}><Text style={styles.discardText}>Discard</Text></Pressable>
+          <Pressable style={styles.saveAllBtn} onPress={saveAll} disabled={isSaving}><Ionicons name="checkmark-circle" size={18} color={colors.white} /><Text style={styles.saveAllText}>{isSaving ? 'Saving...' : 'Save All Ratings'}</Text></Pressable>
         </View>
-      </View>
+      </AppScreen>
     );
   }
 
   if (step === 'jokes' && currentJoke) {
     return (
-      <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : insets.top }]}>
+      <AppScreen>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Back to crowd selection" onPress={() => setStep('crowd')} hitSlop={10}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textGray} />
+          <Pressable accessibilityLabel="Back" onPress={() => setStep('crowd')} hitSlop={10} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Crowd Logger</Text>
-          <Text style={styles.progressText}>{currentJokeIdx + 1}/{jokeQueue.length}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Crowd Logger</Text>
+            <Text style={styles.headerSub}>{currentJokeIdx + 1} of {jokeQueue.length}</Text>
+          </View>
+          <Pressable onPress={skipJoke}><Text style={styles.skipText}>Skip</Text></Pressable>
         </View>
-
-        {/* Progress */}
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${pct * 100}%` as unknown as number }]} />
-        </View>
-
-        <View style={styles.logContent}>
-          <Animated.View key={currentJokeIdx} entering={FadeIn.duration(250)} style={styles.jokeCard}>
-            <Text style={styles.jokeCurrent}>How did this land?</Text>
-            <Text style={styles.jokeTitle}>{currentJoke.title}</Text>
-            {currentJoke.setup && (
-              <Text style={styles.jokeSetup} numberOfLines={3}>{currentJoke.setup}</Text>
-            )}
-          </Animated.View>
-
+        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${((currentJokeIdx + 1) / jokeQueue.length) * 100}%` }]} /></View>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.jokeCard}>
+            <Text style={styles.jokeKicker}>JOKE IN SET</Text>
+            <Text style={styles.jokeTitle}>{currentJoke.title || 'Untitled'}</Text>
+            {currentJoke.setup ? <Text style={styles.jokeSetup}>{currentJoke.setup}</Text> : null}
+          </View>
+          <Text style={styles.reactionTitle}>How&apos;d it land?</Text>
           <View style={styles.reactionGrid}>
             {REACTION_OPTS.map(opt => (
-              <Pressable
-                key={opt.value}
-                style={({ pressed }) => [styles.reactionBtn, pressed && { transform: [{ scale: 0.92 }] }]}
-                onPress={() => logReaction(opt.value, opt.label)}
-              >
-                <Text style={styles.reactionEmoji}>{opt.icon}</Text>
-                <Text style={[styles.reactionLabel, { color: opt.color }]}>{opt.label}</Text>
+              <Pressable key={opt.value} style={styles.reactionBtn} onPress={() => logReaction(opt.value, opt.label)}>
+                <Text style={styles.reactionIcon}>{opt.icon}</Text>
+                <Text style={styles.reactionLabel}>{opt.label}</Text>
               </Pressable>
             ))}
           </View>
-
-          <Pressable style={styles.skipBtn} onPress={skipJoke}>
-            <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
-            <Text style={styles.skipText}>Skip this joke</Text>
-          </Pressable>
-        </View>
-      </View>
+        </ScrollView>
+      </AppScreen>
     );
   }
 
-  // Step: crowd selection
   return (
-    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : insets.top }]}>
+    <AppScreen>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Close crowd logger" onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="close" size={24} color={Colors.textGray} />
+        <Pressable accessibilityLabel="Close" onPress={() => router.back()} hitSlop={10} style={styles.iconBtn}>
+          <Ionicons name="close" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Crowd Logger</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 44 }} />
       </View>
-
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 100 }]}>
-        <Text style={styles.stepLabel}>What&apos;s the crowd?</Text>
-        <View style={styles.crowdGrid}>
-          {CROWD_TYPES.map(c => (
-            <Pressable
-              key={c.value}
-              style={[styles.crowdCard, crowdType === c.value && { backgroundColor: Colors.primaryGold + '22', borderColor: Colors.primaryGold }]}
-              onPress={() => setCrowdType(c.value)}
-            >
-              <Text style={styles.crowdEmoji}>{c.emoji}</Text>
-              <Text style={[styles.crowdLabel, crowdType === c.value && { color: Colors.primaryGold }]}>{c.label}</Text>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionTitle}>Select Audience</Text>
+        <View style={styles.audienceGrid}>
+          {CROWD_TYPES.map(type => (
+            <Pressable key={type.value} style={[styles.audienceBtn, crowdType === type.value && styles.audienceBtnActive]} onPress={() => setCrowdType(type.value)}>
+              <Text style={styles.audienceEmoji}>{type.emoji}</Text>
+              <Text style={[styles.audienceLabel, crowdType === type.value && { color: colors.white }]}>{type.label}</Text>
             </Pressable>
           ))}
         </View>
-
-        <Text style={[styles.stepLabel, { marginTop: 24 }]}>Logging from</Text>
-        <View style={styles.setlistPicker}>
-          <Pressable
-            style={[styles.setlistOpt, !selectedSetlistId && { backgroundColor: Colors.primaryGold + '22', borderColor: Colors.primaryGold }]}
-            onPress={() => setSelectedSetlistId(null)}
-          >
-            <Text style={[styles.setlistOptText, !selectedSetlistId && { color: Colors.primaryGold }]}>All Stage-Ready Jokes</Text>
-          </Pressable>
-          {setlists.map(s => (
-            <Pressable
-              key={s.id}
-              style={[styles.setlistOpt, selectedSetlistId === s.id && { backgroundColor: Colors.primaryGold + '22', borderColor: Colors.primaryGold }]}
-              onPress={() => setSelectedSetlistId(s.id)}
-            >
-              <Text style={[styles.setlistOptText, selectedSetlistId === s.id && { color: Colors.primaryGold }]}>{s.name}</Text>
-              <Text style={styles.setlistMeta}>{s.jokes.length} jokes</Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
-
-      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }]}>
-        <Pressable
-          style={[styles.startBtn, activeSetlistJokes.length === 0 && { opacity: 0.4 }]}
-          onPress={startLogging}
-          disabled={activeSetlistJokes.length === 0}
-        >
-          <Ionicons name="play" size={18} color={Colors.oledBlack} />
-          <Text style={styles.startBtnText}>Start Logging ({activeSetlistJokes.length} jokes)</Text>
+        <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Source</Text>
+        <Pressable style={[styles.sourceBtn, !selectedSetlistId && styles.sourceBtnActive]} onPress={() => setSelectedSetlistId(null)}>
+          <Ionicons name="library-outline" size={20} color={!selectedSetlistId ? colors.white : colors.text} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sourceTitle, !selectedSetlistId && { color: colors.white }]}>All stage-ready jokes</Text>
+            <Text style={[styles.sourceSub, !selectedSetlistId && { color: colors.white, opacity: 0.8 }]}>Log from your entire material</Text>
+          </View>
         </Pressable>
-      </View>
-    </View>
+        {setlists.length > 0 && <Pressable style={[styles.sourceBtn, selectedSetlistId && styles.sourceBtnActive]} onPress={() => setSelectedSetlistId(setlists[0].id)}>
+          <Ionicons name="list-outline" size={20} color={selectedSetlistId ? colors.white : colors.text} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sourceTitle, selectedSetlistId && { color: colors.white }]}>Current setlist</Text>
+            <Text style={[styles.sourceSub, selectedSetlistId && { color: colors.white, opacity: 0.8 }]}>{setlists[0].name}</Text>
+          </View>
+        </Pressable>}
+        <Pressable style={styles.startBtn} onPress={startLogging}>
+          <Ionicons name="play" size={18} color={colors.white} />
+          <Text style={styles.startBtnText}>Start Logging</Text>
+        </Pressable>
+      </ScrollView>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.oledBlack },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-  },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.white },
-  progressText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textGray },
-  progressTrack: { height: 3, backgroundColor: Colors.cardDarker, marginHorizontal: 20, borderRadius: 2, marginBottom: 8 },
-  progressFill: { height: '100%', backgroundColor: Colors.primaryGold, borderRadius: 2 },
-  scroll: { paddingHorizontal: 20, paddingTop: 8 },
-  stepLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white, marginBottom: 14 },
-  crowdGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  crowdCard: {
-    width: '47%', backgroundColor: Colors.cardDark, borderRadius: 16,
-    padding: 20, alignItems: 'center', gap: 8,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  crowdEmoji: { fontSize: 28 },
-  crowdLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.textGray, textAlign: 'center' },
-  setlistPicker: { gap: 10 },
-  setlistOpt: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.cardDark, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  setlistOptText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textGray },
-  setlistMeta: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textMuted },
-  logContent: { flex: 1, paddingHorizontal: 20, paddingTop: 12, gap: 20 },
-  jokeCard: {
-    backgroundColor: Colors.cardDark, borderRadius: 20, padding: 24,
-    borderWidth: 1, borderColor: Colors.border, gap: 10,
-  },
-  jokeCurrent: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textMuted },
-  jokeTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.primaryGold },
-  jokeSetup: { fontFamily: 'Inter_400Regular', fontSize: 16, color: Colors.white, lineHeight: 26 },
-  reactionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-  reactionBtn: {
-    width: '18%', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.cardDark, borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  reactionEmoji: { fontSize: 28 },
-  reactionLabel: { fontFamily: 'Inter_500Medium', fontSize: 10, textAlign: 'center' },
-  skipBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 12,
-  },
-  skipText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textMuted },
-  bottomActions: {
-    paddingHorizontal: 20, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-    backgroundColor: Colors.oledBlack,
-  },
-  startBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.primaryGold, borderRadius: 16, paddingVertical: 16,
-  },
-  startBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.oledBlack },
-  discardBtn: {
-    paddingVertical: 14, borderRadius: 14, alignItems: 'center',
-    backgroundColor: Colors.cardDark, borderWidth: 1, borderColor: Colors.border, marginBottom: 10,
-  },
-  discardText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.textGray },
-  saveAllBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: Colors.primaryGold, borderRadius: 14, paddingVertical: 15,
-  },
-  saveAllText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.oledBlack },
-  summaryHero: { alignItems: 'center', paddingVertical: 32, gap: 10 },
-  summaryEmoji: { fontSize: 56 },
-  summaryTitle: { fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.white },
-  summarySub: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textGray },
-  summaryCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.cardDark, borderRadius: 14, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  summaryJokeTitle: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
-  summaryReaction: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  summaryEmojiBig: { fontSize: 22 },
-  summaryLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
-});
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, gap: spacing.xs },
+    iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontFamily: type.bold, fontSize: 20, color: colors.text, flex: 1 },
+    headerSub: { fontFamily: type.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
+    skipText: { fontFamily: type.medium, fontSize: 14, color: colors.muted, paddingHorizontal: spacing.sm },
+    progressTrack: { height: 4, backgroundColor: colors.surface, marginHorizontal: spacing.md },
+    progressFill: { height: '100%', backgroundColor: colors.blue },
+    scroll: { paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: spacing.md },
+    sectionTitle: { fontFamily: type.bold, fontSize: 16, color: colors.text },
+    audienceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+    audienceBtn: { flexBasis: '48%', flexGrow: 1, borderWidth: 1.25, borderColor: colors.border, padding: spacing.md, alignItems: 'center', gap: spacing.xs },
+    audienceBtnActive: { backgroundColor: colors.blue, borderColor: colors.blue },
+    audienceEmoji: { fontSize: 28 },
+    audienceLabel: { fontFamily: type.medium, fontSize: 13, color: colors.text },
+    sourceBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1.25, borderColor: colors.border, padding: spacing.md },
+    sourceBtnActive: { backgroundColor: colors.blue, borderColor: colors.blue },
+    sourceTitle: { fontFamily: type.medium, fontSize: 14, color: colors.text },
+    sourceSub: { fontFamily: type.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
+    startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.blue, padding: spacing.md, marginTop: spacing.lg },
+    startBtnText: { fontFamily: type.bold, fontSize: 15, color: colors.white },
+    jokeCard: { borderWidth: 1.25, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
+    jokeKicker: { fontFamily: type.bold, fontSize: 10, color: colors.gold, letterSpacing: 0.7 },
+    jokeTitle: { fontFamily: type.bold, fontSize: 22, color: colors.text },
+    jokeSetup: { fontFamily: type.regular, fontSize: 15, color: colors.muted, lineHeight: 22 },
+    reactionTitle: { fontFamily: type.bold, fontSize: 16, color: colors.text, textAlign: 'center', marginTop: spacing.md },
+    reactionGrid: { gap: spacing.xs },
+    reactionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1.25, borderColor: colors.border, padding: spacing.md },
+    reactionIcon: { fontSize: 24 },
+    reactionLabel: { fontFamily: type.medium, fontSize: 15, color: colors.text },
+    summaryHero: { alignItems: 'center', padding: spacing.xl, gap: spacing.xs },
+    summaryEmoji: { fontSize: 48 },
+    summaryTitle: { fontFamily: type.bold, fontSize: 28, color: colors.text },
+    summarySub: { fontFamily: type.regular, fontSize: 14, color: colors.muted },
+    summaryCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.25, borderColor: colors.border, padding: spacing.md },
+    summaryJokeTitle: { fontFamily: type.medium, fontSize: 14, color: colors.text, flex: 1 },
+    summaryReaction: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    summaryEmojiBig: { fontSize: 20 },
+    summaryLabel: { fontFamily: type.medium, fontSize: 13, color: colors.text },
+    bottomActions: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.md, borderTopWidth: 1.25, borderTopColor: colors.border },
+    discardBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.md, borderWidth: 1.5, borderColor: colors.border },
+    discardText: { fontFamily: type.bold, fontSize: 15, color: colors.text },
+    saveAllBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.blue, padding: spacing.md },
+    saveAllText: { fontFamily: type.bold, fontSize: 15, color: colors.white },
+  });
+}
