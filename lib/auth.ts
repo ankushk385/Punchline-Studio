@@ -5,7 +5,7 @@ import { requireSupabaseConfiguration, supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const APP_SCHEME = 'standupcompanion';
+const APP_SCHEME = 'punchlinestudio';
 export const authRedirectTo = Linking.createURL('auth/callback', { scheme: APP_SCHEME });
 
 function getOAuthParams(url: string) {

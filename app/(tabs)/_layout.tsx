@@ -1,23 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import { type } from '@/theme/tokens';
 
 const tabs = [
   { name: 'index', title: 'Home', icon: 'home-outline', active: 'home' },
-  { name: 'inbox', title: 'Inbox', icon: 'mail-outline', active: 'mail' },
-  { name: 'setlist', title: 'Setlists', icon: 'list-outline', active: 'list' },
+  { name: 'ideas', title: 'Ideas', icon: 'bulb-outline', active: 'bulb' },
+  { name: 'material', title: 'Material', icon: 'layers-outline', active: 'layers' },
+  { name: 'perform', title: 'Perform', icon: 'play-outline', active: 'play' },
   { name: 'gigs', title: 'Gigs', icon: 'calendar-outline', active: 'calendar' },
-  { name: 'record', title: 'Record', icon: 'mic-outline', active: 'mic' },
 ] as const;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
 
   return (
     <Tabs
@@ -27,9 +25,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.amber,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          position: 'absolute',
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.nav,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.nav,
+          borderTopWidth: 1.5,
           borderTopColor: colors.border,
           elevation: 0,
           height: 64 + Math.max(insets.bottom, 12),
@@ -37,9 +34,6 @@ export default function TabLayout() {
           paddingBottom: Math.max(insets.bottom, 12),
         },
         tabBarLabelStyle: { fontFamily: type.medium, fontSize: 10.5 },
-        tabBarBackground: () => Platform.OS === 'ios'
-          ? <BlurView intensity={90} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.nav }]} />,
       }}
     >
       {tabs.map(tab => (
@@ -54,6 +48,9 @@ export default function TabLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="inbox" options={{ href: null }} />
+      <Tabs.Screen name="setlist" options={{ href: null }} />
+      <Tabs.Screen name="record" options={{ href: null }} />
     </Tabs>
   );
 }

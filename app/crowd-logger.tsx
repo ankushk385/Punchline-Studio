@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Platform, FlatList,
+  View, Text, StyleSheet, Pressable, ScrollView, Platform,
 } from 'react-native';
 import { Alert } from '@/lib/alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

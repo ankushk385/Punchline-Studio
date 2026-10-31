@@ -213,6 +213,7 @@ function mergeSettings(
     displayName: winner.displayName ?? local.displayName,
     comedyStyle: winner.comedyStyle ?? local.comedyStyle,
     crowdType: winner.crowdType ?? local.crowdType,
+    scriptLanguage: winner.scriptLanguage ?? local.scriptLanguage ?? 'hinglish-romanized',
     dailyWriteTarget: Number.isFinite(winner.dailyWriteTarget) ? winner.dailyWriteTarget : local.dailyWriteTarget,
     dailyPracticeMinutes: Number.isFinite(winner.dailyPracticeMinutes) ? winner.dailyPracticeMinutes : local.dailyPracticeMinutes,
     // Preserve the local value only when an older client omitted the field

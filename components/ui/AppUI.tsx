@@ -57,11 +57,11 @@ export function EmptyState({ icon, title, body }: { icon: keyof typeof Ionicons.
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, shadowOffset: { width: 0, height: 5 }, shadowRadius: 16, elevation: 1 },
-  button: { minHeight: 50, borderRadius: radius.md, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
-  buttonText: { fontFamily: type.semibold, fontSize: 15 },
+  card: { borderWidth: 1.25, borderRadius: radius.md, padding: spacing.md, shadowOffset: { width: 0, height: 2 }, shadowRadius: 5, elevation: 0 },
+  button: { minHeight: 50, borderRadius: radius.sm, borderWidth: 1.25, borderColor: 'transparent', paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+  buttonText: { fontFamily: type.bold, fontSize: 14 },
   titleRow: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  title: { fontFamily: type.bold, fontSize: 30, letterSpacing: -0.8 },
+  title: { fontFamily: type.display, fontSize: 38, lineHeight: 40, letterSpacing: 0.2 },
   subtitle: { fontFamily: type.regular, fontSize: 14, marginTop: 3 },
   empty: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 28 },
   emptyIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },

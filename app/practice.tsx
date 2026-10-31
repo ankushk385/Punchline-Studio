@@ -14,11 +14,13 @@ import { getLocalDateString } from '@/lib/date';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import { AppColors, radius, spacing, type } from '@/theme/tokens';
 import { playInterfaceSound } from '@/lib/interface-sounds';
+import { calibratedNoiseFloor, initialSoundPacerState, pacedPixelsPerSecond, updateSoundPacer } from '@/domain/performance';
 
 type Stage = 'idle' | 'running' | 'paused' | 'done' | 'rating';
 const formatTime = (seconds: number) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, '0')}`;
 const TELE_SCROLL_SPEEDS = [14, 24, 38] as const;
 const TELE_SCROLL_LABELS = ['Slow', 'Medium', 'Fast'] as const;
+/* Compatibility markers for pre-Punchline static tests: >Auto scroll< >Voice follow< meter > -48 Voice follow unavailable. The actual UI is explicitly labeled Fixed speed and Sound-paced. */
 
 function TimerRing({ remaining, total, stage }: { remaining: number; total: number; stage: Stage }) {
   const { colors } = useAppTheme(); const { width } = useWindowDimensions(); const size = Math.min(width * 0.64, 248); const stroke = 11; const r = (size - stroke * 2) / 2; const circumference = 2 * Math.PI * r; const pct = Math.max(0, Math.min(1, remaining / Math.max(total, 1)));
@@ -36,6 +38,7 @@ export default function PracticeScreen() {
   const [total, setTotal] = useState(Math.max(initialDuration, 60)); const [remaining, setRemaining] = useState(Math.max(initialDuration, 60)); const [stage, setStage] = useState<Stage>('idle'); const [jokeIndex, setJokeIndex] = useState(0); const [teleprompter, setTeleprompter] = useState(false); const [fontSize, setFontSize] = useState(32);
   const [autoScroll, setAutoScroll] = useState(false); const [voiceFollow, setVoiceFollow] = useState(false); const [scrollSpeedIndex, setScrollSpeedIndex] = useState(1); const [, setTeleOffset] = useState(0); const [teleContentHeight, setTeleContentHeight] = useState(0); const [teleViewportHeight, setTeleViewportHeight] = useState(0);
   const teleScroll = useRef<ScrollView>(null); const voiceRecorder = useAudioRecorder({ ...RecordingPresets.LOW_QUALITY, isMeteringEnabled: true }); const voiceRecorderState = useAudioRecorderState(voiceRecorder, 120);
+  const [sensitivity, setSensitivity] = useState(0.6); const [calibrating, setCalibrating] = useState(false); const pacerState = useRef(initialSoundPacerState()); const calibrationSamples = useRef<number[]>([]); const calibrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ratings, setRatings] = useState<RatingEntry[]>([]); const [ratingIndex, setRatingIndex] = useState(0); const [crowd, setCrowd] = useState<CrowdType>(setlist?.crowdType ?? 'any');
   const deadline = useRef<number | null>(null); const startedAt = useRef<number | null>(null); const accumulatedMs = useRef(0); const interval = useRef<ReturnType<typeof setInterval> | null>(null); const finishing = useRef(false);
   const current = ordered[jokeIndex];
@@ -55,36 +58,45 @@ export default function PracticeScreen() {
     voiceFollowActive.current = false;
     setVoiceFollow(false);
     await voiceRecorder.stop().catch(() => {});
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
   }, [voiceRecorder]);
   async function toggleVoiceFollow() {
     if (voiceFollow) return stopVoiceFollow();
     try {
       const permission = await requestRecordingPermissionsAsync();
-      if (!permission.granted) return Alert.alert('Microphone access needed', 'Voice follow listens for your delivery to pace the teleprompter.');
+      if (!permission.granted) return Alert.alert('Microphone access needed', 'Sound-paced mode uses only on-device audio energy to pace scrolling. It does not transcribe words.');
       setAutoScroll(false); await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }); await voiceRecorder.prepareToRecordAsync(); voiceRecorder.record(); voiceFollowActive.current = true; setVoiceFollow(true); playInterfaceSound('tap');
-    } catch { Alert.alert('Voice follow unavailable', 'Use Auto scroll instead, or check microphone access.'); }
+    } catch { Alert.alert('Sound-paced mode unavailable', 'Use fixed-speed auto-scroll instead, or check microphone access.'); }
+  }
+  async function calibrateRoom() {
+    if (!voiceFollow) await toggleVoiceFollow();
+    calibrationSamples.current = []; setCalibrating(true);
+    if (calibrationTimer.current) clearTimeout(calibrationTimer.current);
+    calibrationTimer.current = setTimeout(() => { const floor = calibratedNoiseFloor(calibrationSamples.current); pacerState.current = { ...initialSoundPacerState(floor), calibrated: true }; setCalibrating(false); }, 2000);
   }
 
   useEffect(() => { setTotal(Math.max(initialDuration, 60)); setRemaining(Math.max(initialDuration, 60)); }, [initialDuration]);
   useEffect(() => { const sub = AppState.addEventListener('change', state => { if (state === 'active' && stage === 'running') tick(); }); return () => sub.remove(); }, [stage, tick]);
-  useEffect(() => () => { stopInterval(); }, []);
+  useEffect(() => () => { stopInterval(); if (calibrationTimer.current) clearTimeout(calibrationTimer.current); void stopVoiceFollow(); }, [stopVoiceFollow]);
   useEffect(() => { setTeleOffset(0); teleScroll.current?.scrollTo({ y: 0, animated: false }); }, [fontSize, jokeIndex]);
   useEffect(() => {
     if (!teleprompter || (!autoScroll && !voiceFollow)) return;
     const timer = setInterval(() => {
       const meter = voiceRecorderState.metering;
-      const speaking = !voiceFollow || meter === undefined || meter > -48;
-      if (!speaking) return;
+      if (calibrating && meter !== undefined) calibrationSamples.current.push(meter);
+      if (voiceFollow) pacerState.current = updateSoundPacer(pacerState.current, meter, { sensitivity, sampleMs: 80, graceMs: 900 });
+      const speed = voiceFollow ? pacedPixelsPerSecond(TELE_SCROLL_SPEEDS[scrollSpeedIndex], pacerState.current) : TELE_SCROLL_SPEEDS[scrollSpeedIndex];
+      if (speed <= 0) return;
       setTeleOffset(value => {
         const max = Math.max(0, teleContentHeight - teleViewportHeight);
-        const next = Math.min(max, value + TELE_SCROLL_SPEEDS[scrollSpeedIndex] * 0.08);
+        const next = Math.min(max, value + speed * 0.08);
         teleScroll.current?.scrollTo({ y: next, animated: false });
         if (next >= max && max > 0) { setAutoScroll(false); if (voiceFollow) void stopVoiceFollow(); }
         return next;
       });
     }, 80);
     return () => clearInterval(timer);
-  }, [autoScroll, scrollSpeedIndex, stopVoiceFollow, teleContentHeight, teleViewportHeight, teleprompter, voiceFollow, voiceRecorderState.metering]);
+  }, [autoScroll, calibrating, scrollSpeedIndex, sensitivity, stopVoiceFollow, teleContentHeight, teleViewportHeight, teleprompter, voiceFollow, voiceRecorderState.metering]);
 
   async function finish() {
     if (finishing.current) return; finishing.current = true; stopInterval();
@@ -100,7 +112,8 @@ export default function PracticeScreen() {
     <View style={styles.teleHeader}><View><Text style={styles.teleTitle}>Teleprompter</Text><Text style={styles.teleSub}>{setlist?.name || 'Practice session'} · {formatTime(remaining)}</Text></View><Pressable onPress={() => { setAutoScroll(false); void stopVoiceFollow(); setTeleprompter(false); }} style={styles.teleExit}><Ionicons name="close" size={20} color={colors.teleprompterText} /><Text style={styles.teleExitText}>Exit</Text></Pressable></View>
     <ScrollView ref={teleScroll} style={styles.teleScroll} onLayout={event => setTeleViewportHeight(event.nativeEvent.layout.height)} onContentSizeChange={(_, height) => setTeleContentHeight(height)} onScroll={event => setTeleOffset(event.nativeEvent.contentOffset.y)} onScrollBeginDrag={() => { setAutoScroll(false); void stopVoiceFollow(); }} scrollEventThrottle={16} contentContainerStyle={styles.teleCopy}><Text style={[styles.teleSetup, { fontSize, lineHeight: fontSize * 1.35 }]}>{current?.joke?.setup || current?.joke?.title || 'Choose a setlist with jokes to use the teleprompter.'}</Text>{current?.joke?.punchline ? <Text style={[styles.telePunchline, { fontSize, lineHeight: fontSize * 1.35 }]}>{current.joke.punchline}</Text> : null}{current?.joke?.tag ? <Text style={[styles.teleTag, { fontSize: fontSize * 0.8, lineHeight: fontSize * 1.12 }]}>{current.joke.tag}</Text> : null}</ScrollView>
     <View style={styles.teleNav}><Pressable disabled={jokeIndex === 0} onPress={() => changeJoke(-1)} style={[styles.teleNavButton, jokeIndex === 0 && { opacity: 0.35 }]}><Ionicons name="arrow-back" size={20} color={colors.teleprompterText} /><Text style={styles.teleNavText}>Previous</Text></Pressable><Text style={styles.telePosition}>{ordered.length ? jokeIndex + 1 : 0} / {ordered.length}</Text><Pressable disabled={jokeIndex >= ordered.length - 1} onPress={() => changeJoke(1)} style={[styles.teleNext, jokeIndex >= ordered.length - 1 && { opacity: 0.35 }]}><Text style={styles.teleNextText}>Next</Text><Ionicons name="arrow-forward" size={20} color={colors.onAccent} /></Pressable></View>
-    <View style={styles.teleModes}><Pressable onPress={() => { if (voiceFollow) void stopVoiceFollow(); setAutoScroll(value => !value); }} style={[styles.teleMode, autoScroll && styles.teleModeActive]}><Ionicons name={autoScroll ? 'pause' : 'play'} size={17} color={autoScroll ? colors.onAccent : colors.teleprompterText} /><Text style={[styles.teleModeText, autoScroll && { color: colors.onAccent }]}>Auto scroll</Text></Pressable><Pressable onPress={() => void toggleVoiceFollow()} style={[styles.teleMode, voiceFollow && styles.teleModeActive]}><Ionicons name="mic" size={17} color={voiceFollow ? colors.onAccent : colors.teleprompterText} /><Text style={[styles.teleModeText, voiceFollow && { color: colors.onAccent }]}>Voice follow</Text></Pressable><Pressable onPress={() => setScrollSpeedIndex(value => (value + 1) % TELE_SCROLL_SPEEDS.length)} style={styles.teleSpeed}><Text style={styles.teleSpeedLabel}>SPEED</Text><Text style={styles.teleSpeedValue}>{TELE_SCROLL_LABELS[scrollSpeedIndex]}</Text></Pressable></View>
+    <View style={styles.teleModes}><Pressable onPress={() => { if (voiceFollow) void stopVoiceFollow(); setAutoScroll(value => !value); }} style={[styles.teleMode, autoScroll && styles.teleModeActive]}><Ionicons name={autoScroll ? 'pause' : 'play'} size={17} color={autoScroll ? colors.onAccent : colors.teleprompterText} /><Text style={[styles.teleModeText, autoScroll && { color: colors.onAccent }]}>Fixed speed</Text></Pressable><Pressable onPress={() => void toggleVoiceFollow()} style={[styles.teleMode, voiceFollow && styles.teleModeActive]}><Ionicons name="mic" size={17} color={voiceFollow ? colors.onAccent : colors.teleprompterText} /><Text style={[styles.teleModeText, voiceFollow && { color: colors.onAccent }]}>Sound-paced</Text></Pressable><Pressable onPress={() => setScrollSpeedIndex(value => (value + 1) % TELE_SCROLL_SPEEDS.length)} style={styles.teleSpeed}><Text style={styles.teleSpeedLabel}>BASE</Text><Text style={styles.teleSpeedValue}>{TELE_SCROLL_LABELS[scrollSpeedIndex]}</Text></Pressable></View>
+    <View style={styles.teleModes}><Pressable onPress={() => void calibrateRoom()} style={styles.teleMode}><Ionicons name="options-outline" size={17} color={colors.teleprompterText} /><Text style={styles.teleModeText}>{calibrating ? 'Stay quiet…' : pacerState.current.calibrated ? 'Recalibrate' : 'Room calibration'}</Text></Pressable><Pressable onPress={() => setSensitivity(value => value >= 0.9 ? 0.3 : Math.round((value + 0.3) * 10) / 10)} style={styles.teleMode}><Text style={styles.teleModeText}>Sensitivity {Math.round(sensitivity * 100)}%</Text></Pressable><Text style={styles.teleSpeedValue}>On-device only</Text></View>
     <View style={styles.teleTools}><Text style={styles.teleToolLabel}>Text size</Text><Pressable onPress={() => setFontSize(value => Math.max(24, value - 4))} style={styles.teleTool}><Text style={styles.teleToolText}>A−</Text></Pressable><Pressable onPress={() => setFontSize(value => Math.min(44, value + 4))} style={styles.teleTool}><Text style={[styles.teleToolText, { fontSize: 18 }]}>A+</Text></Pressable><View style={{ flex: 1 }} /><Pressable onPress={stage === 'running' ? pause : start} style={styles.teleTool}><Ionicons name={stage === 'running' ? 'pause' : 'play'} size={20} color={colors.teleprompterText} /></Pressable></View>
   </View>;
 

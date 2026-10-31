@@ -7,7 +7,8 @@ import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput,
 import { Alert } from '@/lib/alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareBottomSheet } from '@/components/KeyboardAwareBottomSheet';
-import { EmptyState, PrimaryButton, ScreenTitle } from '@/components/ui/AppUI';
+import { EmptyState, PrimaryButton } from '@/components/ui/AppUI';
+import { FilterChip, PlaybillHeader } from '@/components/ui/Playbill';
 import { ComedyStyle, Idea, IdeaStatus, useData } from '@/context/DataContext';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import { AppColors, radius, spacing, type } from '@/theme/tokens';
@@ -214,12 +215,14 @@ export default function InboxScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: Platform.OS === 'web' ? 62 : insets.top }]}>
-      <ScreenTitle title="Idea Inbox" subtitle={`${ideas.filter(i => i.status !== 'archived').length} active idea${ideas.filter(i => i.status !== 'archived').length === 1 ? '' : 's'}`} action={<Pressable accessibilityLabel="Capture new idea" onPress={() => setAdding(true)} style={styles.add}><Ionicons name="add" size={25} color={colors.onAccent} /></Pressable>} />
+      <PlaybillHeader number="02" title="Ideas" subtitle={`${ideas.filter(i => i.status !== 'archived').length} sparks waiting to become material.`} />
+      <View style={styles.captureRail}><Text style={styles.captureNumber}>02</Text><View style={{ flex: 1 }}><Text style={styles.captureTitle}>CAPTURE ANYWHERE.</Text><Text style={styles.captureSub}>Save it before it disappears.</Text></View></View>
+      <View style={styles.captureActions}><Pressable accessibilityLabel="Capture text idea" onPress={() => setAdding(true)} style={styles.capturePrimary}><Ionicons name="create-outline" size={18} color={colors.white} /><Text style={styles.capturePrimaryText}>TEXT IDEA</Text></Pressable><Pressable accessibilityLabel="Capture voice idea" onPress={() => setAdding(true)} style={styles.captureSecondary}><Ionicons name="mic-outline" size={18} color={colors.red} /><Text style={styles.captureSecondaryText}>VOICE NOTE</Text></Pressable></View>
       <View style={styles.search}><Feather name="search" size={18} color={colors.muted} /><TextInput value={search} onChangeText={setSearch} placeholder="Search ideas..." placeholderTextColor={colors.subtle} style={styles.searchInput} />{!!search && <Pressable onPress={() => setSearch('')}><Ionicons name="close-circle" size={18} color={colors.muted} /></Pressable>}</View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters}>
         {(['all', 'raw', 'developing', 'stage-ready'] as const).map(item => {
           const active = filter === item;
-          return <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filter, active && { backgroundColor: colors.amber, borderColor: colors.amber }]}><Text style={[styles.filterText, active && { color: colors.onAccent }]}>{item === 'all' ? 'All' : statusLabels[item]}</Text></Pressable>;
+          return <FilterChip key={item} label={item === 'all' ? 'All' : statusLabels[item]} selected={active} onPress={() => setFilter(item)} />;
         })}
       </ScrollView>
       <FlatList
@@ -230,7 +233,7 @@ export default function InboxScreen() {
         renderItem={({ item }) => {
           const color = statusColor(item.status, colors);
           return (
-            <Pressable onPress={() => setEditing(item)} style={({ pressed }) => [styles.idea, { opacity: pressed ? 0.82 : 1 }]}>
+            <Pressable onPress={() => setEditing(item)} style={({ pressed }) => [styles.idea, { borderLeftColor: color, opacity: pressed ? 0.72 : 1 }]}>
               <View style={styles.ideaTop}><View style={[styles.badge, { backgroundColor: `${color}18` }]}><View style={[styles.dot, { backgroundColor: color }]} /><Text style={[styles.badgeText, { color }]}>{statusLabels[item.status]}</Text></View><Text style={styles.date}>{new Date(item.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text></View>
               <Text style={styles.ideaTitle} numberOfLines={1}>{item.title}</Text>
               {!!item.body && <Text style={styles.ideaBody} numberOfLines={2}>{item.body}</Text>}
@@ -248,35 +251,41 @@ export default function InboxScreen() {
 
 function makeStyles(colors: AppColors) { return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  add: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center' },
-  search: { marginHorizontal: spacing.lg, minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  captureRail: { margin: spacing.md, marginBottom: 8, minHeight: 54, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.red },
+  captureNumber: { width: 56, textAlign: 'center', fontFamily: type.display, fontSize: 32, color: colors.black },
+  captureTitle: { fontFamily: type.bold, fontSize: 13, color: colors.white, letterSpacing: 0.5 },
+  captureSub: { fontFamily: type.regular, fontSize: 10.5, color: colors.white, marginTop: 2 },
+  captureActions: { paddingHorizontal: spacing.md, flexDirection: 'row', gap: 8, marginBottom: 12 },
+  capturePrimary: { flex: 1, minHeight: 46, backgroundColor: colors.blue, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  capturePrimaryText: { fontFamily: type.bold, fontSize: 11, color: colors.white, letterSpacing: 0.5 },
+  captureSecondary: { flex: 1, minHeight: 46, borderWidth: 1.25, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  captureSecondaryText: { fontFamily: type.bold, fontSize: 11, color: colors.text, letterSpacing: 0.5 },
+  search: { marginHorizontal: spacing.md, minHeight: 48, borderWidth: 1.25, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchInput: { flex: 1, fontFamily: type.regular, fontSize: 14, color: colors.text, paddingVertical: 0 },
-  filters: { paddingHorizontal: spacing.lg, paddingVertical: 12, gap: 8 },
-  filter: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  filterText: { fontFamily: type.medium, fontSize: 13, color: colors.muted },
-  list: { paddingHorizontal: spacing.lg, gap: 10 },
-  idea: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 16 },
+  filters: { paddingHorizontal: spacing.md, paddingVertical: 10, gap: 7 },
+  list: { paddingHorizontal: spacing.md, gap: 9 },
+  idea: { backgroundColor: colors.card, borderWidth: 1.25, borderLeftWidth: 7, borderColor: colors.border, padding: 14 },
   ideaTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   badgeText: { fontFamily: type.medium, fontSize: 11.5 },
   date: { fontFamily: type.regular, fontSize: 11.5, color: colors.muted },
-  ideaTitle: { fontFamily: type.semibold, fontSize: 17, color: colors.text },
+  ideaTitle: { fontFamily: type.bold, fontSize: 16, color: colors.text },
   ideaBody: { fontFamily: type.regular, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 4 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.lavenderSoft },
-  tagText: { fontFamily: type.medium, fontSize: 11.5, color: colors.lavender },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  tagText: { fontFamily: type.medium, fontSize: 11, color: colors.text },
 }); }
 
 function makeEditorStyles(colors: AppColors) { return StyleSheet.create({
   editorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  editorTitle: { fontFamily: type.bold, fontSize: 22, color: colors.text },
+  editorTitle: { fontFamily: type.display, fontSize: 30, color: colors.text },
   editorSub: { fontFamily: type.regular, fontSize: 13, color: colors.muted, marginTop: 2 },
   label: { fontFamily: type.semibold, fontSize: 12.5, color: colors.text, marginBottom: 7, marginTop: 12 },
-  input: { minHeight: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 13, fontFamily: type.regular, fontSize: 14, color: colors.text },
+  input: { minHeight: 48, borderWidth: 1.25, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 13, fontFamily: type.regular, fontSize: 14, color: colors.text },
   notes: { minHeight: 92, paddingTop: 12 },
   chipRow: { gap: 8, paddingBottom: 2 },
-  chip: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 13, borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, backgroundColor: colors.surface },
+  chip: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   chipText: { fontFamily: type.medium, fontSize: 12, color: colors.muted },
   tagInputRow: { flexDirection: 'row', gap: 8 },
   addTag: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
@@ -284,7 +293,7 @@ function makeEditorStyles(colors: AppColors) { return StyleSheet.create({
   tag: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.lavenderSoft },
   tagText: { fontFamily: type.medium, fontSize: 11.5, color: colors.lavender },
   voiceRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
-  voiceButton: { minHeight: 44, flex: 1, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  voiceButton: { minHeight: 44, flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   voiceText: { fontFamily: type.medium, fontSize: 13, color: colors.text },
   voicePlay: { width: 44, height: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
 }); }

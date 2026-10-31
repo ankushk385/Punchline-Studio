@@ -22,6 +22,7 @@ export type IdeaStatus = 'raw' | 'developing' | 'stage-ready' | 'archived';
 export type ComedyStyle = 'observational' | 'dark' | 'storytelling' | 'roast' | 'self-deprecating' | 'absurdist';
 export type CrowdType = 'corporate' | 'college' | 'club' | 'any';
 export type JokeState = 'draft' | 'developing' | 'stage-ready' | 'retired' | 'in-set';
+export type ScriptLanguage = 'hinglish-romanized' | 'english' | 'other';
 
 export interface Idea {
   id: string;
@@ -97,6 +98,7 @@ export interface Recording {
   jokeId?: string;
   ideaId?: string;
   setlistId?: string;
+  sessionId?: string;
   kind?: 'performance' | 'voice-take' | 'idea-note';
   isBestTake?: boolean;
   cloudPath?: string;
@@ -130,6 +132,12 @@ export interface JokeRating {
   notes: string;
   crowdType: CrowdType;
   kept: boolean;
+  jokeVersionId?: string;
+  performanceSessionId?: string;
+  gigId?: string;
+  setlistId?: string;
+  recordingTimestampMs?: number;
+  decision?: 'keep' | 'rework' | 'undecided';
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string;
@@ -163,6 +171,7 @@ export interface UserProfile {
   displayName: string;
   comedyStyle: ComedyStyle;
   crowdType: CrowdType;
+  scriptLanguage?: ScriptLanguage;
 }
 
 // ─── Daily Prompts ─────────────────────────────────────────────────────────────
@@ -367,6 +376,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     displayName: 'Comedian',
     comedyStyle: 'observational',
     crowdType: 'any',
+    scriptLanguage: 'hinglish-romanized',
   });
   const [syncState, setSyncState] = useState<CloudSyncState>({
     phase: isSupabaseConfigured ? 'idle' : 'unavailable',
@@ -390,6 +400,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     displayName: 'Comedian',
     comedyStyle: 'observational',
     crowdType: 'any',
+    scriptLanguage: 'hinglish-romanized',
   });
   const storageUserIdRef = useRef<string | null>(null);
   const authUserIdRef = useRef<string | null>(null);
@@ -484,6 +495,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     displayName: profileRef.current.displayName,
     comedyStyle: profileRef.current.comedyStyle,
     crowdType: profileRef.current.crowdType,
+    scriptLanguage: profileRef.current.scriptLanguage ?? 'hinglish-romanized',
     dailyWriteTarget: goalsRef.current.dailyWriteTarget,
     dailyPracticeMinutes: goalsRef.current.dailyPracticeMinutes,
     activeSetlistId: activeSetlistIdRef.current,
@@ -579,6 +591,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       displayName: snapshot.settings.displayName,
       comedyStyle: snapshot.settings.comedyStyle,
       crowdType: snapshot.settings.crowdType,
+      scriptLanguage: snapshot.settings.scriptLanguage ?? 'hinglish-romanized',
     });
     commitGoals({
       dailyWriteTarget: Number(snapshot.settings.dailyWriteTarget) > 0 ? Number(snapshot.settings.dailyWriteTarget) : 2,
@@ -615,6 +628,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           displayName: snapshot.settings.displayName,
           comedyStyle: snapshot.settings.comedyStyle,
           crowdType: snapshot.settings.crowdType,
+          scriptLanguage: snapshot.settings.scriptLanguage ?? 'hinglish-romanized',
         })],
         [`${KEYS.GOALS}:${userId}`, JSON.stringify({
           dailyWriteTarget: snapshot.settings.dailyWriteTarget,
@@ -652,7 +666,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     commitRatings([]);
     commitProgress([]);
     commitGoals({ dailyWriteTarget: 2, dailyPracticeMinutes: 15 });
-    commitProfile({ displayName: 'Comedian', comedyStyle: 'observational', crowdType: 'any' });
+    commitProfile({ displayName: 'Comedian', comedyStyle: 'observational', crowdType: 'any', scriptLanguage: 'hinglish-romanized' });
     setActiveSetlistIdState(null);
     activeSetlistIdRef.current = null;
     settingsUpdatedAtRef.current = '';
@@ -877,7 +891,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       commitRatings([]);
       commitProgress([]);
       commitGoals({ dailyWriteTarget: 2, dailyPracticeMinutes: 15 });
-      commitProfile({ displayName: 'Comedian', comedyStyle: 'observational', crowdType: 'any' });
+      commitProfile({ displayName: 'Comedian', comedyStyle: 'observational', crowdType: 'any', scriptLanguage: 'hinglish-romanized' });
       setSyncState({
         phase: isSupabaseConfigured ? 'idle' : 'unavailable',
         lastSyncedAt: null,
@@ -1056,6 +1070,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           displayName: loadedProfile.displayName || 'Comedian',
           comedyStyle: loadedProfile.comedyStyle || 'observational',
           crowdType: loadedProfile.crowdType || 'any',
+          scriptLanguage: loadedProfile.scriptLanguage || 'hinglish-romanized',
         });
 
         const settingsUpdatedAt = readValue(KEYS.SETTINGS_UPDATED) ?? '';

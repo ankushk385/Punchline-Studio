@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import { AppColors, darkColors, lightColors, ResolvedTheme, ThemeMode } from './tokens';
+import { AppColors, dayColors, lateColors, resolveTheme, ResolvedTheme, ThemeMode } from './tokens';
 import { setInterfaceSoundsEnabled } from '@/lib/interface-sounds';
 
 const THEME_KEY = '@standup:theme-mode';
@@ -31,7 +31,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.multiGet([THEME_KEY, HAPTICS_KEY, SOUNDS_KEY]).then(values => {
       const storedMode = values[0][1];
-      if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'system') setModeState(storedMode);
+      if (storedMode === 'day' || storedMode === 'late' || storedMode === 'system') setModeState(storedMode);
+      // Backward-compatible migration from StandUp Companion appearance values.
+      if (storedMode === 'light') setModeState('day');
+      if (storedMode === 'dark') setModeState('late');
       if (values[1][1] !== null) setHapticsState(values[1][1] === 'true');
       if (values[2][1] !== null) setSoundsState(values[2][1] === 'true');
     }).catch(error => console.warn('Could not load appearance preferences', error));
@@ -39,14 +42,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { setInterfaceSoundsEnabled(soundsEnabled); }, [soundsEnabled]);
 
-  const resolvedTheme: ResolvedTheme = mode === 'system' ? (systemTheme === 'light' ? 'light' : 'dark') : mode;
-  const colors = resolvedTheme === 'dark' ? darkColors : lightColors;
+  const resolvedTheme: ResolvedTheme = resolveTheme(mode, systemTheme);
+  const colors = resolvedTheme === 'late' ? lateColors : dayColors;
 
   const value = useMemo<ThemeContextValue>(() => ({
     mode,
     resolvedTheme,
     colors,
-    isDark: resolvedTheme === 'dark',
+    isDark: resolvedTheme === 'late',
     setMode: async (next) => {
       setModeState(next);
       await AsyncStorage.setItem(THEME_KEY, next);

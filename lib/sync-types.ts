@@ -1,5 +1,6 @@
 import type {
   CrowdType,
+  ScriptLanguage,
   DailyProgress,
   Gig,
   Idea,
@@ -19,6 +20,7 @@ export interface SyncedUserSettings {
   displayName: string;
   comedyStyle: ComedyStyle;
   crowdType: CrowdType;
+  scriptLanguage?: ScriptLanguage;
   dailyWriteTarget: number;
   dailyPracticeMinutes: number;
   activeSetlistId: string | null;
@@ -44,7 +46,10 @@ export type SyncEntityType =
   | 'rating'
   | 'progress'
   | 'settings'
-  | 'recording';
+  | 'recording'
+  | 'performanceSession'
+  | 'sessionEvent'
+  | 'sessionReview';
 
 export type QueueOperationType = 'upsert' | 'delete';
 

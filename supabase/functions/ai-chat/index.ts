@@ -1,7 +1,7 @@
 import { corsHeaders, error, json } from '../_shared/http.ts';
 import { userClient } from '../_shared/clients.ts';
 
-type RequestBody = { prompt?: string; context?: string; type?: 'premise' | 'jokes' | 'feedback' | 'general' };
+type RequestBody = { prompt?: string; context?: string; type?: 'premise' | 'jokes' | 'feedback' | 'general'; action?: 'health' };
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -17,14 +17,15 @@ Deno.serve(async (request) => {
     if (!userId) return error('unauthorized', 'A valid user session is required.', 401);
 
     const body = await request.json() as RequestBody;
-    const prompt = body.prompt?.trim() ?? '';
-    if (!prompt || prompt.length > 4000) return error('invalid_prompt', 'Prompt must contain 1 to 4,000 characters.');
-
     const providerKey = Deno.env.get('GEMINI_API_KEY') ?? Deno.env.get('GOOGLE_API_KEY');
     const model = Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-lite-latest';
     if (!providerKey) return error('provider_unavailable', 'The AI provider is not configured.', 503);
+    if (body.action === 'health') return json({ ok: true, provider: 'gemini', checkedAt: new Date().toISOString() });
 
-    const systemInstruction = `You are a helpful stand-up comedy assistant for StandUp Companion.
+    const prompt = body.prompt?.trim() ?? '';
+    if (!prompt || prompt.length > 4000) return error('invalid_prompt', 'Prompt must contain 1 to 4,000 characters.');
+
+    const systemInstruction = `You are a helpful stand-up comedy assistant for Punchline Studio.
 Be practical, specific, and actionable.
 Give concrete suggestions with examples when helpful.
 Keep responses concise but useful.`;

@@ -25,7 +25,8 @@ export interface CloudDataSnapshot {
   recordingTombstones: string[];
 }
 
-const ENTITY_TABLES: Record<Exclude<SyncEntityType, 'settings' | 'recording'>, string> = {
+type PayloadEntity = Exclude<SyncEntityType, 'settings' | 'recording' | 'performanceSession' | 'sessionEvent' | 'sessionReview'>;
+const ENTITY_TABLES: Record<PayloadEntity, string> = {
   idea: 'standup_ideas',
   joke: 'standup_jokes',
   setlist: 'standup_setlists',
@@ -148,7 +149,7 @@ function recordTimestamps(record: Record<string, unknown>, operation: 'upsert' |
 
 export async function pushCloudEntity(
   userId: string,
-  entityType: Exclude<SyncEntityType, 'recording'>,
+  entityType: PayloadEntity | 'settings',
   record: Record<string, unknown>,
   operation: 'upsert' | 'delete',
 ): Promise<void> {
@@ -187,7 +188,7 @@ export async function pushCloudEntity(
 
 export async function deleteCloudEntity(
   userId: string,
-  entityType: Exclude<SyncEntityType, 'recording'>,
+  entityType: PayloadEntity | 'settings',
   entityId: string,
 ): Promise<void> {
   requireSupabaseConfiguration();

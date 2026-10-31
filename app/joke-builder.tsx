@@ -8,6 +8,7 @@ import { Alert } from '@/lib/alert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { PrimaryButton } from '@/components/ui/AppUI';
+import { SegmentedControl } from '@/components/ui/Playbill';
 import { CrowdType, JokeState, useData } from '@/context/DataContext';
 import { useAppTheme } from '@/theme/ThemeProvider';
 import { AppColors, radius, spacing, type } from '@/theme/tokens';
@@ -173,10 +174,12 @@ export default function JokeBuilderScreen() {
     <View style={[styles.screen, { paddingTop: Platform.OS === 'web' ? 62 : insets.top }]}>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Close joke builder" disabled={recordingTake} onPress={() => { void saveRef.current(false); router.back(); }} style={[styles.iconButton, recordingTake && { opacity: 0.4 }]}><Ionicons name="chevron-back" size={23} color={colors.text} /></Pressable>
-        <View style={{ flex: 1 }}><Text style={styles.heading}>{existing ? 'Edit joke' : 'Build a joke'}</Text><Text style={styles.subheading}>{lastSaved ? `Saved ${lastSaved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'From thought to punchline.'}</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.heading}>JOKE STUDIO</Text><Text style={styles.subheading}>{lastSaved ? `Saved ${lastSaved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : existing ? 'Edit without losing the original.' : 'Write. Refine. Get unstuck.'}</Text></View>
         <Pressable onPress={() => void saveRef.current(true)} disabled={saving || recordingTake} style={[styles.headerSave, recordingTake && { opacity: 0.4 }]}><Text style={styles.headerSaveText}>{recordingTake ? 'Recording' : saving ? 'Saving' : 'Save'}</Text></Pressable>
       </View>
       <KeyboardAwareScrollViewCompat showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]}>
+        <View style={styles.writeRail}><Text style={styles.writeNumber}>03</Text><View style={{ flex: 1 }}><Text style={styles.writeTitle}>WRITE</Text><Text style={styles.writeSub}>Build freely or get a guided prompt.</Text></View></View>
+        <SegmentedControl value="builder" options={[{ value: 'builder', label: 'Builder' }, { value: 'guide', label: 'Guide me' }]} onChange={value => { if (value === 'guide') void openWizard(); }} />
         <View style={styles.fieldCard}>
           <View style={styles.fieldHead}><Ionicons name="bulb-outline" size={19} color={colors.amber} /><Text style={styles.fieldLabel}>Premise</Text><Text style={styles.counter}>{title.length}/100</Text></View>
           <TextInput value={title} onChangeText={setTitle} placeholder="What is this joke about?" placeholderTextColor={colors.subtle} style={styles.input} maxLength={100} testID="joke-title-input" />
@@ -231,30 +234,34 @@ function makeStyles(colors: AppColors) { return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.lg, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconButton: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  heading: { fontFamily: type.bold, fontSize: 25, color: colors.text, letterSpacing: -0.5 },
+  heading: { fontFamily: type.display, fontSize: 31, color: colors.text, letterSpacing: 0.3 },
   subheading: { fontFamily: type.regular, fontSize: 12.5, color: colors.muted, marginTop: 1 },
   headerSave: { minHeight: 40, paddingHorizontal: 15, borderRadius: 12, justifyContent: 'center', backgroundColor: colors.amber },
   headerSaveText: { fontFamily: type.semibold, fontSize: 13, color: colors.onAccent },
-  content: { paddingHorizontal: spacing.lg, gap: 11 },
-  fieldCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 14, gap: 8 },
+  content: { paddingHorizontal: spacing.md, gap: 11 },
+  writeRail: { minHeight: 54, backgroundColor: colors.gold, flexDirection: 'row', alignItems: 'center' },
+  writeNumber: { width: 58, textAlign: 'center', fontFamily: type.display, fontSize: 34, color: colors.black },
+  writeTitle: { fontFamily: type.bold, fontSize: 14, color: colors.black, letterSpacing: 0.6 },
+  writeSub: { fontFamily: type.regular, fontSize: 10.5, color: colors.black, marginTop: 1 },
+  fieldCard: { backgroundColor: colors.card, borderWidth: 1.25, borderColor: colors.border, padding: 14, gap: 8 },
   fieldHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   fieldLabel: { fontFamily: type.semibold, fontSize: 16, color: colors.text, flex: 1 },
   counter: { fontFamily: type.regular, fontSize: 11, color: colors.muted },
-  input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 12, fontFamily: type.regular, fontSize: 14, lineHeight: 20, color: colors.text },
+  input: { minHeight: 46, borderWidth: 1.25, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 12, fontFamily: type.regular, fontSize: 14, lineHeight: 20, color: colors.text },
   longInput: { minHeight: 86, paddingTop: 11 },
   disclosure: { minHeight: 44, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   disclosureText: { fontFamily: type.semibold, fontSize: 14, color: colors.muted },
   disclosureInner: { minHeight: 36, flexDirection: 'row', alignItems: 'center' },
   smallLabel: { fontFamily: type.semibold, fontSize: 12.5, color: colors.text, marginTop: 5 },
   chips: { gap: 7 },
-  chip: { minHeight: 37, justifyContent: 'center', paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  chip: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   chipSelected: { borderColor: colors.lavender, backgroundColor: colors.lavenderSoft },
   chipText: { fontFamily: type.medium, fontSize: 12, color: colors.muted },
   chipTextSelected: { color: colors.lavender },
   tagInputRow: { flexDirection: 'row', gap: 8 },
   addTag: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.lavenderSoft, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tag: { paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.lavenderSoft, flexDirection: 'row', alignItems: 'center', gap: 4 },
   tagText: { fontFamily: type.medium, fontSize: 11.5, color: colors.lavender },
   secondaryRow: { flexDirection: 'row', gap: 8 },
   secondary: { flex: 1, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },

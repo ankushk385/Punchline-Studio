@@ -1,257 +1,38 @@
-import React from 'react';
-import {
-  View, Text, StyleSheet, FlatList, Pressable, Platform,
-} from 'react-native';
-import { Alert } from '@/lib/alert';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '@/constants/colors';
-import { useData, JokeVersion } from '@/context/DataContext';
-
-function VersionCard({ version, isLatest, onRevert }: { version: JokeVersion; isLatest: boolean; onRevert: () => void }) {
-  return (
-    <Animated.View entering={FadeInDown.duration(300)}>
-      <View style={styles.versionCard}>
-        <View style={styles.versionHeader}>
-          <View style={styles.versionBadge}>
-            <Text style={styles.versionNum}>v{version.version}</Text>
-          </View>
-          {isLatest && (
-            <View style={styles.latestBadge}>
-              <Text style={styles.latestText}>Current</Text>
-            </View>
-          )}
-          <Text style={styles.versionDate}>
-            {new Date(version.createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </Text>
-          {!isLatest && (
-            <Pressable
-              style={({ pressed }) => [styles.revertBtn, pressed && { opacity: 0.8 }]}
-              onPress={onRevert}
-            >
-              <Ionicons name="arrow-undo" size={14} color={Colors.softPurple} />
-              <Text style={styles.revertText}>Revert</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {!!version.note && (
-          <Text style={styles.versionNote}>{version.note}</Text>
-        )}
-
-        <View style={styles.versionContent}>
-          {version.setup ? (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: Colors.primaryGold }]}>Setup</Text>
-              <Text style={styles.fieldText}>{version.setup}</Text>
-            </View>
-          ) : null}
-          {version.punchline ? (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: Colors.primaryPurple }]}>Punchline</Text>
-              <Text style={styles.fieldText}>{version.punchline}</Text>
-            </View>
-          ) : null}
-          {version.tag ? (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: Colors.statusStage }]}>Tag</Text>
-              <Text style={styles.fieldText}>{version.tag}</Text>
-            </View>
-          ) : null}
-          {version.callback ? (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: Colors.statusDev }]}>Callback</Text>
-              <Text style={styles.fieldText}>{version.callback}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </Animated.View>
-  );
-}
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppScreen, EmptyState, PlaybillCard, PlaybillHeader, StatusBadge } from '@/components/ui/Playbill';
+import { JokeVersion, useData } from '@/context/DataContext';
+import { usePerformanceSessions } from '@/context/PerformanceSessionContext';
+import { compareVersionOutcomes, VersionOutcome } from '@/domain/performance';
+import { confirmAction, notify } from '@/lib/dialog';
+import { useAppTheme } from '@/theme/ThemeProvider';
+import { AppColors, spacing, type } from '@/theme/tokens';
 
 export default function JokeVersionsScreen() {
-  const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { jokes, revertJokeVersion } = useData();
-  const joke = jokes.find(j => j.id === id);
-
-  if (!joke) {
-    return (
-      <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : insets.top, alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ color: Colors.white }}>Joke not found</Text>
-      </View>
-    );
-  }
-
-  const currentJokeId = joke.id;
-  const versions = [...joke.versions].sort((a, b) => b.version - a.version);
-
-  function confirmRevert(version: JokeVersion) {
-    Alert.alert(
-      `Revert to v${version.version}?`,
-      'This will replace the current joke content with this version. The current version will be saved first.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Revert',
-          style: 'destructive',
-          onPress: async () => {
-            await revertJokeVersion(currentJokeId, version.id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Reverted', `Joke reverted to v${version.version}`);
-          },
-        },
-      ]
-    );
-  }
-
-  return (
-    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : insets.top }]}>
-      <View style={styles.header}>
-        <Pressable accessibilityLabel="Back to joke" onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-down" size={24} color={Colors.textGray} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Version History</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{joke.title || joke.setup?.slice(0, 30)}</Text>
-        </View>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>{versions.length}</Text>
-        </View>
-      </View>
-
-      {versions.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="time-outline" size={48} color={Colors.textMuted} />
-          <Text style={styles.emptyTitle}>No versions yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Version history is automatically saved when you edit and save a joke
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={versions}
-          keyExtractor={item => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 40 + (Platform.OS === 'web' ? 34 : 0) }]}
-          renderItem={({ item, index }) => (
-            <VersionCard
-              version={item}
-              isLatest={index === 0}
-              onRevert={() => confirmRevert(item)}
-            />
-          )}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={styles.infoCard}>
-              <Ionicons name="information-circle" size={16} color={Colors.textGray} />
-              <Text style={styles.infoText}>
-                Versions are saved automatically when you edit a joke. Max 20 versions stored.
-              </Text>
-            </View>
-          }
-        />
-      )}
-    </View>
-  );
+  const { id } = useLocalSearchParams<{ id: string }>(); const { colors } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]); const { jokes, revertJokeVersion, updateJoke } = useData(); const { reviews } = usePerformanceSessions(); const joke = jokes.find(item => item.id === id);
+  const outcomes = useMemo(() => joke ? compareVersionOutcomes(joke, reviews).sort((a, b) => b.version.version - a.version.version) : [], [joke, reviews]);
+  if (!joke) return <AppScreen><PlaybillHeader back title="Version History" /><EmptyState title="Joke not found" body="This joke may have been removed on another device." /></AppScreen>;
+  async function restore(version: JokeVersion) { const confirmed = await confirmAction({ title: `Restore v${version.version}?`, message: 'The current text is saved as a snapshot first. Performance history remains linked to its original version.', confirmLabel: 'Restore version' }); if (!confirmed) return; await revertJokeVersion(joke!.id, version.id); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }
+  async function duplicate(version: JokeVersion) { await updateJoke(joke!.id, { setup: version.setup, punchline: version.punchline, tag: version.tag, callback: version.callback }); notify('Editable copy created', 'The selected snapshot is now loaded as the current draft. Save Version when ready.'); router.back(); }
+  return <AppScreen><PlaybillHeader back title="Version History" subtitle={`${joke.title} · observed outcomes, not causation`} number="03" />
+    <FlatList data={outcomes} keyExtractor={item => item.version.id} contentContainerStyle={styles.list} ListHeaderComponent={<PlaybillCard accent="gold"><Text style={styles.caution}>Small samples are noisy. Punchline Studio reports performances, manual ratings, laugh scores, audiences, and venues without claiming that a text change caused the outcome.</Text></PlaybillCard>} ListEmptyComponent={<EmptyState title="No snapshots yet" body="Use Save Version in Joke Studio to preserve exact wording." />} renderItem={({ item, index }) => <VersionCard outcome={item} current={index === 0} onRestore={() => void restore(item.version)} onDuplicate={() => void duplicate(item.version)} />} />
+  </AppScreen>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.oledBlack },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 14,
-  },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.white },
-  headerSub: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textGray, marginTop: 2 },
-  countBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.cardDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  countText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.primaryGold },
-  list: { paddingHorizontal: 20, gap: 12 },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: Colors.cardDarker,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  infoText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textGray, lineHeight: 18 },
-  versionCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 12,
-  },
-  versionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  versionBadge: {
-    backgroundColor: Colors.cardDarker,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.primaryGold + '44',
-  },
-  versionNum: { fontFamily: 'Inter_700Bold', fontSize: 13, color: Colors.primaryGold },
-  latestBadge: {
-    backgroundColor: Colors.statusStage + '22',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.statusStage + '44',
-  },
-  latestText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.statusStage },
-  versionDate: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textMuted },
-  revertBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.softPurple + '22',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: Colors.softPurple + '44',
-  },
-  revertText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.softPurple },
-  versionNote: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: Colors.textGray,
-    fontStyle: 'italic',
-    backgroundColor: Colors.cardDarker,
-    borderRadius: 8,
-    padding: 8,
-  },
-  versionContent: { gap: 10 },
-  field: { gap: 4 },
-  fieldLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12 },
-  fieldText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.white, lineHeight: 20 },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    gap: 12,
-  },
-  emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.white },
-  emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textGray, textAlign: 'center', lineHeight: 22 },
-});
+function VersionCard({ outcome, current, onRestore, onDuplicate }: { outcome: VersionOutcome; current: boolean; onRestore: () => void; onDuplicate: () => void }) {
+  const { colors } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]); const { version } = outcome;
+  return <PlaybillCard accent={current ? 'blue' : undefined} style={{ gap: 12 }}>
+    <View style={styles.row}><Text style={styles.version}>VERSION {String(version.version).padStart(2, '0')}</Text>{current && <StatusBadge label="Current" tone="blue" />}<Text style={styles.date}>{new Date(version.createdAt).toLocaleDateString()}</Text></View>
+    {version.note ? <Text style={styles.note}>{version.note}</Text> : null}
+    {[['Setup', version.setup], ['Punchline', version.punchline], ['Tag', version.tag], ['Callback', version.callback]].filter(([, value]) => value).map(([label, value]) => <View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.copy}>{value}</Text></View>)}
+    <View style={styles.metrics}><Metric value={String(outcome.performances)} label="Performances" /><Metric value={outcome.ratingAverage === null ? '—' : `${outcome.ratingAverage.toFixed(1)}/5`} label={`${outcome.ratingSamples} ratings`} /><Metric value={outcome.laughAverage === null ? '—' : `${Math.round(outcome.laughAverage)}/100`} label={`${outcome.laughSamples} laugh scores`} /></View>
+    <Text style={styles.context}>{outcome.audiences.length ? `Audiences: ${outcome.audiences.join(', ')}` : 'No audience context yet.'}</Text>{outcome.recentNotes.map((note, index) => <Text key={`${note}-${index}`} style={styles.context}>“{note}”</Text>)}
+    {outcome.insufficientData && <StatusBadge label="Insufficient data" tone="gold" />}
+    <View style={styles.actions}>{!current && <Pressable onPress={onRestore} style={styles.action}><Ionicons name="arrow-undo" size={17} color={colors.blue} /><Text style={styles.actionText}>Restore</Text></Pressable>}<Pressable onPress={onDuplicate} style={styles.action}><Ionicons name="copy-outline" size={17} color={colors.blue} /><Text style={styles.actionText}>Duplicate to edit</Text></Pressable></View>
+  </PlaybillCard>;
+}
+function Metric({ value, label }: { value: string; label: string }) { const { colors } = useAppTheme(); const styles = useMemo(() => makeStyles(colors), [colors]); return <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>; }
+const makeStyles = (colors: AppColors) => StyleSheet.create({ list: { padding: spacing.lg, gap: 11, paddingBottom: 40 }, caution: { fontFamily: type.regular, fontSize: 12, lineHeight: 18, color: colors.muted }, row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, version: { fontFamily: type.display, fontSize: 24, color: colors.text }, date: { flex: 1, textAlign: 'right', fontFamily: type.regular, fontSize: 11, color: colors.muted }, note: { fontFamily: type.regular, fontSize: 12, fontStyle: 'italic', color: colors.muted }, label: { fontFamily: type.bold, fontSize: 10, letterSpacing: 0.7, textTransform: 'uppercase', color: colors.blue }, copy: { fontFamily: type.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 3 }, metrics: { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border }, metric: { flex: 1, paddingVertical: 9, alignItems: 'center' }, metricValue: { fontFamily: type.bold, fontVariant: ['tabular-nums'], fontSize: 15, color: colors.text }, metricLabel: { fontFamily: type.regular, fontSize: 9.5, color: colors.muted, marginTop: 2 }, context: { fontFamily: type.regular, fontSize: 11, lineHeight: 16, color: colors.muted }, actions: { flexDirection: 'row', gap: 8 }, action: { minHeight: 44, flex: 1, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }, actionText: { fontFamily: type.bold, fontSize: 11, color: colors.blue } });

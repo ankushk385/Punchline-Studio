@@ -60,13 +60,13 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <AppCard style={[styles.prompt, { backgroundColor: colors.lavenderSoft, borderColor: `${colors.lavender}45` }]}>
-          <View style={[styles.promptIcon, { backgroundColor: `${colors.lavender}25` }]}><Ionicons name="create-outline" size={23} color={colors.lavender} /></View>
+        <AppCard style={[styles.prompt, { backgroundColor: colors.red, borderColor: colors.border }]}>
+          <View style={styles.promptIcon}><Text style={styles.promptNumber}>01</Text></View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.promptLabel, { color: colors.lavender }]}>TODAY&apos;S WRITING PROMPT</Text>
-            <Text style={[styles.promptText, { color: colors.text }]} numberOfLines={2}>{todayPrompt}</Text>
+            <Text style={styles.promptLabel}>DAILY BILL · WRITING PROMPT</Text>
+            <Text style={styles.promptText} numberOfLines={2}>{todayPrompt}</Text>
           </View>
-          <Pressable onPress={() => router.push({ pathname: '/joke-builder', params: { seedSetup: todayPrompt } })} style={[styles.write, { backgroundColor: colors.lavender }]}>
+          <Pressable onPress={() => router.push({ pathname: '/joke-builder', params: { seedSetup: todayPrompt } })} style={[styles.write, { backgroundColor: colors.background }]}>
             <Text style={styles.writeText}>Write</Text>
           </Pressable>
         </AppCard>
@@ -143,22 +143,23 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   greetingRow: { flexDirection: 'row', alignItems: 'center', paddingTop: spacing.xs, paddingBottom: spacing.sm },
   eyebrow: { fontFamily: type.regular, fontSize: 15 },
-  name: { fontFamily: type.bold, fontSize: 30, letterSpacing: -0.8, marginTop: 1 },
+  name: { fontFamily: type.display, fontSize: 44, lineHeight: 45, letterSpacing: 0.3, marginTop: 1 },
   tagline: { fontFamily: type.regular, fontSize: 14, marginTop: 2 },
-  settings: { width: 46, height: 46, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  prompt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  promptIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  promptLabel: { fontFamily: type.semibold, fontSize: 11, letterSpacing: 0.3 },
-  promptText: { fontFamily: type.semibold, fontSize: 15, lineHeight: 20, marginTop: 3 },
-  write: { paddingHorizontal: 16, minHeight: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  writeText: { fontFamily: type.semibold, color: '#FFFFFF', fontSize: 14 },
+  settings: { width: 46, height: 46, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1.25 },
+  prompt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 0, overflow: 'hidden' },
+  promptIcon: { alignSelf: 'stretch', width: 58, backgroundColor: 'rgba(255,255,255,0.82)', alignItems: 'center', justifyContent: 'center' },
+  promptNumber: { fontFamily: type.display, fontSize: 34, color: '#111111' },
+  promptLabel: { fontFamily: type.bold, fontSize: 10, color: '#111111', letterSpacing: 0.7 },
+  promptText: { fontFamily: type.bold, fontSize: 14, lineHeight: 19, color: '#111111', marginTop: 3 },
+  write: { marginRight: 10, paddingHorizontal: 14, minHeight: 42, borderRadius: 2, borderWidth: 1, borderColor: '#111111', alignItems: 'center', justifyContent: 'center' },
+  writeText: { fontFamily: type.bold, color: '#111111', fontSize: 13 },
   dualRow: { flexDirection: 'row', gap: 10 },
   compactCard: { minHeight: 112, padding: 13 },
   compactIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   compactTitle: { fontFamily: type.semibold, fontSize: 14 },
   compactMeta: { fontFamily: type.regular, fontSize: 12, marginTop: 3 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 7 },
-  sectionTitle: { fontFamily: type.bold, fontSize: 19, letterSpacing: -0.2 },
+  sectionTitle: { fontFamily: type.display, fontSize: 26, letterSpacing: 0.3 },
   edit: { fontFamily: type.medium, fontSize: 13 },
   goalCard: { gap: 16 },
   goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

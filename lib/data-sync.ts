@@ -8,6 +8,7 @@ import { pushCloudEntity } from './cloud-data';
 import type { FlushQueueResult, SyncQueue } from './sync-queue-core';
 import { flushSyncQueue } from './sync-queue-core';
 import type { SyncEntityType, SyncOperation } from './sync-types';
+import { pushPerformanceEntity } from './performance-session-repository';
 
 export { enqueuePendingRecords } from './sync-pending';
 
@@ -40,7 +41,7 @@ async function handleRecording(operation: SyncOperation): Promise<void> {
 }
 
 export function createSyncHandlers(userId: string): Partial<Record<SyncEntityType, (operation: SyncOperation) => Promise<void>>> {
-  const push = (entityType: Exclude<SyncEntityType, 'recording'>) => async (operation: SyncOperation) => {
+  const push = (entityType: Exclude<SyncEntityType, 'recording' | 'performanceSession' | 'sessionEvent' | 'sessionReview'>) => async (operation: SyncOperation) => {
     await pushCloudEntity(userId, entityType, asRecord(operation.payload), operation.operation);
   };
 
@@ -53,6 +54,9 @@ export function createSyncHandlers(userId: string): Partial<Record<SyncEntityTyp
     progress: push('progress'),
     settings: push('settings'),
     recording: handleRecording,
+    performanceSession: async operation => pushPerformanceEntity(userId, 'performanceSession', asRecord(operation.payload), operation.operation),
+    sessionEvent: async operation => pushPerformanceEntity(userId, 'sessionEvent', asRecord(operation.payload), operation.operation),
+    sessionReview: async operation => pushPerformanceEntity(userId, 'sessionReview', asRecord(operation.payload), operation.operation),
   };
 }
 
