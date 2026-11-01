@@ -7,6 +7,9 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return error('method_not_allowed', 'Use POST.', 405);
   try {
+    if (!request.headers.get('Authorization')) {
+      return error('unauthorized', 'A valid user session is required.', 401);
+    }
     const client = userClient(request);
     const { data: claims } = await client.auth.getClaims();
     let userId = claims?.claims?.sub || (claims as any)?.sub;

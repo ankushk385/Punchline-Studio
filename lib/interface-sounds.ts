@@ -1,4 +1,5 @@
 import { createAudioPlayer } from 'expo-audio';
+import { Platform } from 'react-native';
 
 // A very short, low-volume generated WAV keeps interface feedback offline and
 // avoids shipping separate media files for a 55 ms cue.
@@ -10,10 +11,26 @@ export function setInterfaceSoundsEnabled(next: boolean) { enabled = next; }
 
 export function playInterfaceSound(kind: 'tap' | 'success' | 'warning' = 'tap') {
   if (!enabled) return;
+  const volume = kind === 'tap' ? 0.18 : 0.25;
+  const rate = kind === 'success' ? 1.35 : kind === 'warning' ? 0.72 : 1;
+  if (Platform.OS === 'web') {
+    // A fresh HTMLAudioElement per cue plays nicely with the browser autoplay
+    // policy, and catching the promise keeps an interrupted play() from
+    // surfacing as an uncaught page error.
+    try {
+      const audio = new Audio(TAP_WAV);
+      audio.volume = volume;
+      audio.playbackRate = rate;
+      void audio.play().catch(() => {});
+    } catch {
+      // Sound feedback must never block the interaction it accompanies.
+    }
+    return;
+  }
   try {
     const player = createAudioPlayer(TAP_WAV);
-    player.volume = kind === 'tap' ? 0.18 : 0.25;
-    player.setPlaybackRate(kind === 'success' ? 1.35 : kind === 'warning' ? 0.72 : 1);
+    player.volume = volume;
+    player.setPlaybackRate(rate);
     player.play();
     setTimeout(() => player.remove(), 450);
   } catch {
