@@ -34,7 +34,7 @@
         "android.permission.WRITE_CALENDAR"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#101E2B",
+        "backgroundColor": "#FFFDF8",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
