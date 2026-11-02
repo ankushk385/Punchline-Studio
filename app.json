@@ -29,7 +29,9 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#101E2B",
@@ -77,8 +79,9 @@
         "origin": "https://replit.com/"
       },
       "eas": {
-        "projectId": "bbc056fa-46b1-448a-a0de-4bd2ba528e40"
+        "projectId": "730aa4e5-2e83-4706-a82a-4da41abbb808"
       }
-    }
+    },
+    "owner": "ankushk385"
   }
 }
